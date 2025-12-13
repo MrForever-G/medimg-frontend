@@ -8,9 +8,22 @@
           ← 返回数据集列表
         </el-button>
 
-        <el-button type="primary" @click="goSamples">
-          查看样本
-        </el-button>
+        <div class="actions">
+          <!-- 上传样本（隐式绑定当前数据集） -->
+          <el-upload
+            :http-request="uploadSample"
+            :show-file-list="false"
+            accept=".jpg,.jpeg,.png,.tif,.tiff"
+          >
+            <el-button type="primary">
+              上传样本
+            </el-button>
+          </el-upload>
+
+          <el-button type="default" @click="goSamples">
+            查看样本
+          </el-button>
+        </div>
       </div>
 
       <!-- 加载状态 -->
@@ -57,7 +70,9 @@
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+
 import { getDataset } from "../api/datasets";
+import { uploadSampleFile } from "../api/samples";
 
 /**
  * 路由实例
@@ -66,7 +81,7 @@ const route = useRoute();
 const router = useRouter();
 
 /**
- * 当前数据集 ID（来自 /datasets/:id）
+ * 当前数据集 ID
  */
 const datasetId = Number(route.params.id);
 
@@ -87,7 +102,7 @@ async function loadDataset() {
   loading.value = true;
   try {
     dataset.value = await getDataset(datasetId);
-  } catch (e) {
+  } catch {
     ElMessage.error("获取数据集详情失败");
     dataset.value = null;
   } finally {
@@ -96,15 +111,26 @@ async function loadDataset() {
 }
 
 /**
- * 返回数据集列表页
+ * 上传样本（绑定当前数据集）
+ */
+async function uploadSample({ file }) {
+  try {
+    await uploadSampleFile(datasetId, file);
+    ElMessage.success("上传成功");
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || "上传失败");
+  }
+}
+
+/**
+ * 返回数据集列表
  */
 function goBack() {
   router.push("/datasets");
 }
 
 /**
- * 进入样本列表页
- * 路由必须严格匹配 /samples/of/:datasetId
+ * 进入当前数据集的样本列表
  */
 function goSamples() {
   router.push(`/samples/of/${datasetId}`);
@@ -133,6 +159,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
 }
 
 .dataset-title {

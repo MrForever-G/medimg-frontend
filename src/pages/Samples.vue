@@ -1,14 +1,16 @@
 <template>
   <div class="page-wrapper">
 
+    <!-- 页面标题与操作区 -->
     <div class="header">
       <h2 class="page-title">样本管理</h2>
 
-      <el-button type="primary" @click="hintUpload">
+      <el-button type="primary" @click="openUploadDialog">
         上传样本
       </el-button>
     </div>
 
+    <!-- 加载状态 -->
     <el-skeleton
       v-if="loading"
       :rows="6"
@@ -16,6 +18,7 @@
       style="margin-top: 20px;"
     />
 
+    <!-- 样本表格 -->
     <el-table
       v-else
       :data="samples"
@@ -44,11 +47,57 @@
       </el-table-column>
     </el-table>
 
+    <!-- 空状态 -->
     <el-empty
       v-if="!loading && samples.length === 0"
       description="暂无样本"
       style="margin-top: 40px;"
     />
+
+    <!-- 上传样本弹窗 -->
+    <el-dialog
+      v-model="uploadDialogVisible"
+      title="上传样本"
+      width="420px"
+      destroy-on-close
+    >
+      <el-form label-width="90px">
+
+        <el-form-item label="目标数据集" required>
+          <el-select
+            v-model="selectedDatasetId"
+            placeholder="请选择数据集"
+            style="width: 100%;"
+          >
+            <el-option
+              v-for="ds in datasetOptions"
+              :key="ds.id"
+              :label="ds.name"
+              :value="ds.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="选择文件" required>
+          <el-upload
+            :http-request="handleUpload"
+            :show-file-list="false"
+            accept=".jpg,.jpeg,.png,.tif,.tiff"
+          >
+            <el-button type="primary">
+              选择文件
+            </el-button>
+          </el-upload>
+        </el-form-item>
+
+      </el-form>
+
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">
+          取消
+        </el-button>
+      </template>
+    </el-dialog>
 
   </div>
 </template>
@@ -58,13 +107,42 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
-import { getAllSamples, deleteSample } from "../api/samples";
+import { getAllSamples, deleteSample, uploadSampleFile } from "../api/samples";
+import { getDatasets } from "../api/datasets";
 
+/**
+ * 路由实例
+ */
 const router = useRouter();
 
+/**
+ * 样本列表数据
+ */
 const samples = ref([]);
+
+/**
+ * 页面加载状态
+ */
 const loading = ref(false);
 
+/**
+ * 上传弹窗状态
+ */
+const uploadDialogVisible = ref(false);
+
+/**
+ * 数据集下拉选项
+ */
+const datasetOptions = ref([]);
+
+/**
+ * 当前选中的数据集 ID
+ */
+const selectedDatasetId = ref(null);
+
+/**
+ * 加载系统中的全部样本
+ */
 async function loadSamples() {
   loading.value = true;
   try {
@@ -77,10 +155,50 @@ async function loadSamples() {
   }
 }
 
+/**
+ * 打开上传弹窗并加载数据集列表
+ */
+async function openUploadDialog() {
+  try {
+    datasetOptions.value = await getDatasets();
+    uploadDialogVisible.value = true;
+  } catch {
+    ElMessage.error("加载数据集列表失败");
+  }
+}
+
+/**
+ * 执行样本上传
+ */
+async function handleUpload({ file }) {
+  if (!selectedDatasetId.value) {
+    ElMessage.warning("请先选择数据集");
+    return;
+  }
+
+  try {
+    await uploadSampleFile(selectedDatasetId.value, file);
+    ElMessage.success("上传成功");
+
+    uploadDialogVisible.value = false;
+    selectedDatasetId.value = null;
+
+    loadSamples();
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || "上传失败");
+  }
+}
+
+/**
+ * 进入样本详情页
+ */
 function goDetail(row) {
   router.push(`/samples/${row.id}`);
 }
 
+/**
+ * 删除样本
+ */
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
@@ -99,10 +217,9 @@ async function remove(row) {
   }
 }
 
-function hintUpload() {
-  ElMessage.warning("请从具体数据集页面上传样本");
-}
-
+/**
+ * 页面初始化
+ */
 onMounted(loadSamples);
 </script>
 
