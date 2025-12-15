@@ -29,3 +29,31 @@ export function getSampleDetail(sampleId) {
 export function deleteSample(sampleId) {
   return request.delete(`/samples/${sampleId}`);
 }
+
+// 查询当前用户对该样本的下载审批状态
+export function getMySampleApproval(sampleId) {
+  return request.get("/approvals/my", {
+    params: {
+      resource_type: "sample",
+      resource_id: sampleId,
+    },
+  });
+}
+
+// 申请下载样本
+export function requestSampleDownload(sampleId) {
+  return request.post("/approvals/request", null, {
+    params: {
+      resource_type: "sample",
+      resource_id: sampleId,
+      purpose: "download sample",
+    },
+  });
+}
+
+// 下载样本文件（需审批通过）
+export function downloadSample(sampleId) {
+  return request.get(`/samples/${sampleId}/download`, {
+    responseType: "blob",
+  });
+}

@@ -9,7 +9,7 @@
         </el-button>
 
         <div class="actions">
-          <!-- 上传样本（隐式绑定当前数据集） -->
+          <!-- 上传样本 -->
           <el-upload
             :http-request="uploadSample"
             :show-file-list="false"
@@ -24,13 +24,54 @@
             查看样本
           </el-button>
 
+          <!-- 下载相关：仅由审批状态驱动 -->
+
+          <!-- 从未申请 -->
           <el-button
+            v-if="!approvalData"
             type="warning"
             :disabled="!dataset"
             @click="requestDownload"
           >
             申请下载数据集
           </el-button>
+
+          <!-- 审批中 -->
+          <el-tag
+            v-else-if="approvalData.decision === 'pending'"
+            type="info"
+            effect="plain"
+          >
+            下载审批中
+          </el-tag>
+
+          <!-- 已通过（是否过期由后端决定） -->
+          <el-button
+            v-else-if="approvalData.decision === 'approved'"
+            type="success"
+            :loading="downloading"
+            @click="downloadDatasetFile"
+          >
+            下载数据集
+          </el-button>
+
+          <!-- 已拒绝 -->
+          <div
+            v-else
+            style="display: flex; align-items: center; gap: 8px;"
+          >
+            <el-tag type="danger" effect="plain">
+              当前无下载权限
+            </el-tag>
+
+            <el-button
+              type="warning"
+              size="small"
+              @click="requestDownload"
+            >
+              重新申请
+            </el-button>
+          </div>
         </div>
       </div>
 
@@ -60,55 +101,76 @@
             {{ dataset.created_by }}
           </el-descriptions-item>
           <el-descriptions-item label="创建时间">
-            {{ dataset.created_at }}
+            {{ formatBeijingTime(dataset.created_at) }}
           </el-descriptions-item>
         </el-descriptions>
+
+        <!-- 当前审批状态展示 -->
+        <el-alert
+          v-if="approvalData"
+          style="margin-top: 20px;"
+          type="info"
+          :closable="false"
+          show-icon
+        >
+          <template #title>
+            下载审批状态：{{ approvalData.decision }}
+            <span v-if="approvalData.expires_at">
+              （有效期至 {{ formatBeijingTime(approvalData.expires_at) }}）
+            </span>
+          </template>
+        </el-alert>
       </div>
 
       <el-empty
         v-else
         description="数据集不存在或无访问权限"
       />
-
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 
-import { getDataset, requestDatasetDownload } from "../api/datasets";
+import {
+  getDataset,
+  requestDatasetDownload,
+  getMyDatasetApproval,
+  downloadDataset
+} from "../api/datasets";
+
 import { uploadSampleFile } from "../api/samples";
 
-/**
- * 路由实例
- */
+/* 路由 */
+
 const route = useRoute();
 const router = useRouter();
-
-/**
- * 当前数据集 ID
- *
- * 数据集下载采用“申请-审批”模式，
- * 前端仅提供申请入口，不直接暴露下载行为。
- */
 const datasetId = Number(route.params.id);
 
-/**
- * 数据集实体
- */
+/* 页面状态 */
+
 const dataset = ref(null);
-
-/**
- * 页面加载状态
- */
+const approval = ref(null);
 const loading = ref(false);
+const downloading = ref(false);
 
-/**
- * 加载数据集详情
- */
+/* 派生状态 */
+
+const approvalData = computed(() => approval.value);
+
+/* 时间展示（UTC → 北京时间） */
+
+function formatBeijingTime(value) {
+  if (!value) return "";
+  const d = new Date(value + "Z");
+  return d.toLocaleString("zh-CN", { hour12: false });
+}
+
+/* 数据加载 */
+
 async function loadDataset() {
   loading.value = true;
   try {
@@ -121,9 +183,16 @@ async function loadDataset() {
   }
 }
 
-/**
- * 上传样本（绑定当前数据集）
- */
+async function loadApproval() {
+  try {
+    approval.value = await getMyDatasetApproval(datasetId);
+  } catch {
+    approval.value = null;
+  }
+}
+
+/* 行为函数 */
+
 async function uploadSample({ file }) {
   try {
     await uploadSampleFile(datasetId, file);
@@ -133,34 +202,48 @@ async function uploadSample({ file }) {
   }
 }
 
-/**
- * 申请下载数据集
- *
- * 是否允许下载、是否生成压缩包、
- * 是否需要审批，均由后端决定。
- */
 async function requestDownload() {
   try {
     await requestDatasetDownload(datasetId);
     ElMessage.success("已提交下载申请，请等待审批");
+    loadApproval();
   } catch (e) {
     ElMessage.error(e?.response?.data?.detail || "申请失败");
   }
 }
 
-/**
- * 返回数据集列表
- */
+async function downloadDatasetFile() {
+  try {
+    downloading.value = true;
+
+    const res = await downloadDataset(datasetId);
+    const blob = new Blob([res], { type: "application/zip" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dataset_${datasetId}.zip`;
+    a.click();
+
+    window.URL.revokeObjectURL(url);
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || "下载失败");
+  } finally {
+    downloading.value = false;
+  }
+}
+
+/* 导航 */
+
 function goBack() {
   router.push("/datasets");
 }
 
-/**
- * 查看当前数据集下的样本
- */
 function goSamples() {
   router.push(`/datasets/${datasetId}/samples`);
 }
+
+/* 初始化 */
 
 onMounted(() => {
   if (!Number.isFinite(datasetId)) {
@@ -169,6 +252,7 @@ onMounted(() => {
     return;
   }
   loadDataset();
+  loadApproval();
 });
 </script>
 
@@ -190,6 +274,7 @@ onMounted(() => {
 .actions {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .dataset-title {

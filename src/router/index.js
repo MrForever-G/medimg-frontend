@@ -26,16 +26,10 @@ const router = createRouter({
         { path: "datasets", component: () => import("../pages/Datasets.vue") },
         { path: "datasets/:id", component: () => import("../pages/DatasetDetail.vue") },
 
-        // 数据集下的样本（强语义，不和 sample id 冲突）
+        // 数据集下的样本
         {
           path: "datasets/:datasetId/samples",
           component: () => import("../pages/SamplesOfDataset.vue"),
-        },
-        
-        // 样本详情
-        {
-          path: "samples/:id",
-          component: () => import("../pages/SampleDetail.vue"),
         },
 
         // 样本管理（全局）
@@ -44,11 +38,29 @@ const router = createRouter({
           component: () => import("../pages/Samples.vue"),
         },
 
-        // 标注
+        // 样本详情
+        {
+          path: "samples/:id",
+          component: () => import("../pages/SampleDetail.vue"),
+        },
+
+        // 标注页面
         {
           path: "annotations/:sampleId",
           component: () => import("../pages/AnnotationPage.vue"),
         },
+
+        // ✅ 审批管理（新增）
+        {
+          path: "review",
+          component: () => import("../pages/ApprovalManagement.vue"),
+        },
+
+        // （做完审计日志再开）
+        // {
+        //   path: "audit",
+        //   component: () => import("../pages/AuditLog.vue"),
+        // },
       ],
     },
   ],

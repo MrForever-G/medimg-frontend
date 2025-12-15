@@ -36,6 +36,33 @@
           </template>
         </el-table-column>
 
+        <!-- 审批操作（仅管理员可见，仅 submitted 状态可操作） -->
+        <el-table-column
+          v-if="canReview"
+          label="审批"
+          width="160"
+        >
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'submitted'"
+              type="success"
+              size="small"
+              @click="approve(row)"
+            >
+              通过
+            </el-button>
+
+            <el-button
+              v-if="row.status === 'submitted'"
+              type="danger"
+              size="small"
+              @click="reject(row)"
+            >
+              驳回
+            </el-button>
+          </template>
+        </el-table-column>
+
         <!-- 展开查看完整标注内容（格式化展示） -->
         <el-table-column type="expand">
           <template #default="{ row }">
@@ -88,14 +115,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 
 import {
   getAnnotationsBySample,
-  createAnnotation
+  createAnnotation,
+  approveAnnotation,
+  rejectAnnotation,
 } from "../api/annotations";
+
+import { me } from "../api/auth";
 
 /**
  * 路由实例
@@ -109,7 +140,22 @@ const router = useRouter();
 const sampleId = Number(route.params.sampleId);
 
 /**
- * 标注列表（按版本倒序展示，最新标注在最上）
+ * 当前用户（用于审批权限判断）
+ */
+const currentUser = ref(null);
+
+/**
+ * 是否具备标注审批权限
+ */
+const canReview = computed(() => {
+  return (
+    currentUser.value &&
+    ["admin", "data_admin"].includes(currentUser.value.role)
+  );
+});
+
+/**
+ * 标注列表（按版本倒序展示）
  */
 const annotations = ref([]);
 
@@ -121,8 +167,6 @@ const payload = ref("");
 
 /**
  * 加载样本的历史标注
- *
- * 标注按 version 倒序排列，以符合“最新优先”的工程语义。
  */
 async function loadAnnotations() {
   try {
@@ -135,9 +179,6 @@ async function loadAnnotations() {
 
 /**
  * 生成标注内容摘要
- *
- * 用于在表格中快速表达标注语义，
- * 避免用户必须展开每一条记录。
  */
 function summarizePayload(row) {
   if (!row || !row.payload_json) return "";
@@ -162,9 +203,6 @@ function summarizePayload(row) {
 
 /**
  * 格式化标注内容展示
- *
- * 对 JSON 标注进行格式化输出，
- * 对纯文本标注保持原样。
  */
 function formatPayload(row) {
   if (!row || !row.payload_json) return "";
@@ -204,6 +242,32 @@ async function submit() {
 }
 
 /**
+ * 审批通过标注
+ */
+async function approve(row) {
+  try {
+    await approveAnnotation(row.id);
+    ElMessage.success("标注已通过");
+    loadAnnotations();
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || "审批失败");
+  }
+}
+
+/**
+ * 驳回标注
+ */
+async function reject(row) {
+  try {
+    await rejectAnnotation(row.id);
+    ElMessage.success("标注已驳回");
+    loadAnnotations();
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || "驳回失败");
+  }
+}
+
+/**
  * 返回样本详情页
  */
 function goBack() {
@@ -213,12 +277,14 @@ function goBack() {
 /**
  * 页面初始化
  */
-onMounted(() => {
+onMounted(async () => {
   if (!Number.isFinite(sampleId)) {
     ElMessage.error("非法样本 ID");
     router.push("/samples");
     return;
   }
+
+  currentUser.value = await me();
   loadAnnotations();
 });
 </script>
@@ -239,7 +305,6 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* 原始 / 格式化标注内容展示区域 */
 .payload-box {
   white-space: pre-wrap;
   word-break: break-all;

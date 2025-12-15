@@ -32,7 +32,12 @@
       <el-table-column prop="filename" label="文件名" min-width="180" />
       <el-table-column prop="dataset_id" label="数据集ID" width="120" />
       <el-table-column prop="sha256" label="SHA256" width="260" />
-      <el-table-column prop="created_at" label="上传时间" width="180" />
+
+      <el-table-column label="上传时间" width="180">
+        <template #default="{ row }">
+          {{ formatBeijingTime(row.created_at) }}
+        </template>
+      </el-table-column>
 
       <el-table-column label="操作" width="120">
         <template #default="{ row }">
@@ -110,41 +115,29 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { getAllSamples, deleteSample, uploadSampleFile } from "../api/samples";
 import { getDatasets } from "../api/datasets";
 
-/**
- * 路由实例
- */
+/* 路由实例 */
+
 const router = useRouter();
 const route = useRoute();
 
-/**
- * 样本列表数据
- */
+/* 状态 */
+
 const samples = ref([]);
-
-/**
- * 页面加载状态
- */
 const loading = ref(false);
-
-/**
- * 上传弹窗状态
- */
 const uploadDialogVisible = ref(false);
-
-/**
- * 数据集下拉选项
- */
 const datasetOptions = ref([]);
-
-/**
- * 当前选中的数据集 ID
- */
 const selectedDatasetId = ref(null);
 
-/**
- * 加载系统中的全部样本
- * 只允许在 /samples 页面调用
- */
+/* UTC → 北京时间 */
+
+function formatBeijingTime(value) {
+  if (!value) return "";
+  const d = new Date(value + "Z");
+  return d.toLocaleString("zh-CN", { hour12: false });
+}
+
+/* 数据加载 */
+
 async function loadSamples() {
   loading.value = true;
   try {
@@ -157,9 +150,6 @@ async function loadSamples() {
   }
 }
 
-/**
- * 打开上传弹窗并加载数据集列表
- */
 async function openUploadDialog() {
   try {
     datasetOptions.value = await getDatasets();
@@ -169,9 +159,6 @@ async function openUploadDialog() {
   }
 }
 
-/**
- * 执行样本上传
- */
 async function handleUpload({ file }) {
   if (!selectedDatasetId.value) {
     ElMessage.warning("请先选择数据集");
@@ -184,23 +171,16 @@ async function handleUpload({ file }) {
 
     uploadDialogVisible.value = false;
     selectedDatasetId.value = null;
-
     loadSamples();
   } catch (e) {
     ElMessage.error(e?.response?.data?.detail || "上传失败");
   }
 }
 
-/**
- * 进入样本详情页
- */
 function goDetail(row) {
   router.push(`/samples/${row.id}`);
 }
 
-/**
- * 删除样本
- */
 async function remove(row) {
   try {
     await ElMessageBox.confirm(
@@ -219,10 +199,6 @@ async function remove(row) {
   }
 }
 
-/**
- * 路由监听
- * 仅当路径精确为 /samples 时才加载列表
- */
 watch(
   () => route.path,
   (path) => {

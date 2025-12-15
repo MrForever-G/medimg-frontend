@@ -31,7 +31,30 @@ export function getSamplesByDataset(datasetId) {
   return request.get(`/samples/by-dataset/${datasetId}`);
 }
 
-// 申请下载整个数据集（后端接口请确认路径）
-export function requestDatasetDownload(datasetId) {
-  return request.post(`/download-request/dataset/${datasetId}`);
+// 申请下载整个数据集（走审批系统）
+export function requestDatasetDownload(datasetId, purpose = "下载数据集") {
+  return request.post("/approvals/request", null, {
+    params: {
+      resource_type: "dataset",
+      resource_id: datasetId,
+      purpose,
+    },
+  });
+}
+
+// 查询当前用户对该数据集的最新审批状态
+export function getMyDatasetApproval(datasetId) {
+  return request.get("/approvals/my", {
+    params: {
+      resource_type: "dataset",
+      resource_id: datasetId,
+    },
+  });
+}
+
+// 下载整个数据集（需审批通过）
+export function downloadDataset(datasetId) {
+  return request.get(`/datasets/${datasetId}/download`, {
+    responseType: "blob",
+  });
 }
