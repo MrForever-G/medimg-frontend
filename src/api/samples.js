@@ -2,7 +2,7 @@ import request from "./request";
 
 // 获取系统中的所有样本
 export function getAllSamples() {
-  return request.get("/samples");
+  return request.get("/samples/");
 }
 
 // 获取某个数据集下的所有样本

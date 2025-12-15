@@ -6,7 +6,9 @@
 
       <div class="user-info">
         <span>{{ user?.username }}（{{ user?.role }}）</span>
-        <el-button size="small" type="danger" @click="logout">退出登录</el-button>
+        <el-button size="small" type="danger" @click="logout">
+          退出登录
+        </el-button>
       </div>
     </header>
 
@@ -15,20 +17,29 @@
       <!-- 左侧导航栏 -->
       <aside class="sidebar">
         <ul>
-          <li @click="go('/home')" :class="{ active: isActive('/home') }">首页</li>
-          <li @click="go('/datasets')" :class="{ active: isActive('/datasets') }">数据集管理</li>
-          <li @click="go('/samples')" :class="{ active: isActive('/samples') }">样本管理</li>
-          <li @click="go('/annotations')" :class="{ active: isActive('/annotations') }">标注平台</li>
+          <li @click="go('/home')" :class="{ active: isActive('/home') }">
+            首页
+          </li>
+          <li @click="go('/datasets')" :class="{ active: isActive('/datasets') }">
+            数据集管理
+          </li>
+          <li @click="go('/samples')" :class="{ active: isActive('/samples') }">
+            样本管理
+          </li>
 
-          <li v-if="user?.role === 'admin'" 
-              @click="go('/review')" 
-              :class="{ active: isActive('/review') }">
+          <li
+            v-if="user?.role === 'admin'"
+            @click="go('/review')"
+            :class="{ active: isActive('/review') }"
+          >
             审批管理
           </li>
 
-          <li v-if="user?.role === 'admin'"
-              @click="go('/audit')" 
-              :class="{ active: isActive('/audit') }">
+          <li
+            v-if="user?.role === 'admin'"
+            @click="go('/audit')"
+            :class="{ active: isActive('/audit') }"
+          >
             审计日志
           </li>
         </ul>
@@ -36,7 +47,7 @@
 
       <!-- 右侧主内容区域 -->
       <main class="content">
-        <router-view />
+        <router-view :key="$route.fullPath" />
       </main>
     </div>
   </div>
@@ -76,14 +87,12 @@ function isActive(path) {
 </script>
 
 <style scoped>
-/* 整体布局 */
 .layout-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-/* 顶部栏 */
 .layout-header {
   height: 60px;
   padding: 0 20px;
@@ -106,14 +115,12 @@ function isActive(path) {
   gap: 15px;
 }
 
-/* 主体区域布局 */
 .layout-body {
   flex: 1;
   display: flex;
   height: calc(100vh - 60px);
 }
 
-/* 左侧导航栏 */
 .sidebar {
   width: 200px;
   background: #f4f6fa;
@@ -143,7 +150,6 @@ function isActive(path) {
   font-weight: bold;
 }
 
-/* 内容区域 */
 .content {
   flex: 1;
   padding: 20px;

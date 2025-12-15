@@ -23,6 +23,14 @@
           <el-button type="default" @click="goSamples">
             查看样本
           </el-button>
+
+          <el-button
+            type="warning"
+            :disabled="!dataset"
+            @click="requestDownload"
+          >
+            申请下载数据集
+          </el-button>
         </div>
       </div>
 
@@ -71,7 +79,7 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 
-import { getDataset } from "../api/datasets";
+import { getDataset, requestDatasetDownload } from "../api/datasets";
 import { uploadSampleFile } from "../api/samples";
 
 /**
@@ -82,6 +90,9 @@ const router = useRouter();
 
 /**
  * 当前数据集 ID
+ *
+ * 数据集下载采用“申请-审批”模式，
+ * 前端仅提供申请入口，不直接暴露下载行为。
  */
 const datasetId = Number(route.params.id);
 
@@ -123,6 +134,21 @@ async function uploadSample({ file }) {
 }
 
 /**
+ * 申请下载数据集
+ *
+ * 是否允许下载、是否生成压缩包、
+ * 是否需要审批，均由后端决定。
+ */
+async function requestDownload() {
+  try {
+    await requestDatasetDownload(datasetId);
+    ElMessage.success("已提交下载申请，请等待审批");
+  } catch (e) {
+    ElMessage.error(e?.response?.data?.detail || "申请失败");
+  }
+}
+
+/**
  * 返回数据集列表
  */
 function goBack() {
@@ -130,10 +156,10 @@ function goBack() {
 }
 
 /**
- * 进入当前数据集的样本列表
+ * 查看当前数据集下的样本
  */
 function goSamples() {
-  router.push(`/samples/of/${datasetId}`);
+  router.push(`/datasets/${datasetId}/samples`);
 }
 
 onMounted(() => {

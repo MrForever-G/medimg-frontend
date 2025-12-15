@@ -2,7 +2,7 @@ import request from "./request";
 
 // 获取全部数据集
 export function getDatasets() {
-  return request.get("/datasets");
+  return request.get("/datasets/");
 }
 
 // 创建数据集

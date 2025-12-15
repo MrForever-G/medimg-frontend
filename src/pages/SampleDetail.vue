@@ -2,114 +2,101 @@
   <div class="page-wrapper">
 
     <div class="header">
-      <h2 class="page-title">样本管理</h2>
+      <h2 class="page-title">样本详情</h2>
 
-      <el-button type="primary" @click="openUploadDialog">
-        上传样本
-      </el-button>
+      <div class="actions">
+        <el-button type="default" @click="goBack">
+          返回样本列表
+        </el-button>
+
+        <el-button
+          type="primary"
+          :disabled="!sample"
+          @click="goAnnotate"
+        >
+          进入标注
+        </el-button>
+
+        <el-button
+          type="default"
+          :disabled="!sample"
+          @click="downloadSample"
+        >
+          下载样本
+        </el-button>
+      </div>
     </div>
 
     <!-- 加载状态 -->
     <el-skeleton
       v-if="loading"
-      :rows="6"
+      :rows="5"
       animated
       style="margin-top: 20px;"
     />
 
-    <!-- 样本表格 -->
-    <el-table
-      v-else
-      :data="samples"
+    <!-- 样本详情 -->
+    <el-descriptions
+      v-else-if="sample"
       border
-      stripe
-      highlight-current-row
-      style="margin-top: 20px; cursor: pointer;"
-      @row-click="goDetail"
+      :column="1"
+      style="margin-top: 20px;"
     >
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="filename" label="文件名" min-width="180" />
-      <el-table-column prop="dataset_id" label="数据集ID" width="120" />
-      <el-table-column prop="sha256" label="SHA256" width="260" />
-      <el-table-column prop="created_at" label="上传时间" width="180" />
+      <el-descriptions-item label="样本 ID">
+        {{ sample.id }}
+      </el-descriptions-item>
 
-      <el-table-column label="操作" width="120" fixed="right">
-        <template #default="{ row }">
-          <el-button
-            type="danger"
-            size="small"
-            @click.stop="remove(row)"
-          >
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      <el-descriptions-item label="所属数据集 ID">
+        {{ sample.dataset_id }}
+      </el-descriptions-item>
+
+      <el-descriptions-item label="文件名">
+        {{ sample.filename }}
+      </el-descriptions-item>
+
+      <el-descriptions-item label="SHA256">
+        {{ sample.sha256 }}
+      </el-descriptions-item>
+
+      <el-descriptions-item label="上传时间">
+        {{ sample.created_at }}
+      </el-descriptions-item>
+    </el-descriptions>
 
     <el-empty
-      v-if="!loading && samples.length === 0"
-      description="暂无样本"
+      v-else
+      description="样本不存在或无访问权限"
       style="margin-top: 40px;"
     />
-
-    <!-- 上传样本弹窗 -->
-    <el-dialog
-      v-model="uploadDialogVisible"
-      title="上传样本"
-      width="420px"
-      destroy-on-close
-    >
-      <el-form label-width="90px">
-
-        <el-form-item label="所属数据集" required>
-          <el-select
-            v-model="selectedDatasetId"
-            placeholder="请选择数据集"
-          >
-            <el-option
-              v-for="ds in datasetOptions"
-              :key="ds.id"
-              :label="ds.name"
-              :value="ds.id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="样本文件" required>
-          <el-upload
-            :http-request="handleUpload"
-            :show-file-list="false"
-            accept=".jpg,.jpeg,.png,.tif,.tiff"
-          >
-            <el-button type="primary">
-              选择文件
-            </el-button>
-          </el-upload>
-        </el-form-item>
-
-      </el-form>
-    </el-dialog>
 
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { useRoute, useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 
-import { getAllSamples, deleteSample, uploadSampleFile } from "../api/samples";
-import { getDatasets } from "../api/datasets";
+import { getSampleDetail } from "../api/samples";
 
 /**
  * 路由实例
  */
+const route = useRoute();
 const router = useRouter();
 
 /**
- * 样本列表
+ * 当前样本 ID
+ *
+ * 样本 ID 是数据库主键，仅作为唯一标识，
+ * 与前端展示序号（index）在语义上严格区分。
  */
-const samples = ref([]);
+const sampleId = Number(route.params.id);
+
+/**
+ * 样本详情实体
+ */
+const sample = ref(null);
 
 /**
  * 页面加载状态
@@ -117,101 +104,47 @@ const samples = ref([]);
 const loading = ref(false);
 
 /**
- * 上传弹窗状态
+ * 加载样本详情
+ *
+ * 所有访问控制与可见性校验均由后端完成，
+ * 前端仅负责触发请求与展示结果。
  */
-const uploadDialogVisible = ref(false);
-
-/**
- * 数据集下拉选项
- */
-const datasetOptions = ref([]);
-
-/**
- * 当前选择的数据集 ID
- */
-const selectedDatasetId = ref(null);
-
-/**
- * 加载全部样本
- */
-async function loadSamples() {
+async function loadSample() {
   loading.value = true;
   try {
-    samples.value = await getAllSamples();
+    sample.value = await getSampleDetail(sampleId);
   } catch {
-    ElMessage.error("加载样本失败");
-    samples.value = [];
+    ElMessage.error("加载样本详情失败");
+    sample.value = null;
   } finally {
     loading.value = false;
   }
 }
 
 /**
- * 打开上传弹窗并加载数据集列表
+ * 进入标注页面
+ *
+ * 标注入口与下载权限解耦，
+ * 是否允许标注由 AnnotationPage 后端接口决定。
  */
-async function openUploadDialog() {
-  uploadDialogVisible.value = true;
-  try {
-    datasetOptions.value = await getDatasets();
-  } catch {
-    ElMessage.error("加载数据集列表失败");
-    datasetOptions.value = [];
-  }
+function goAnnotate() {
+  router.push(`/annotations/${sampleId}`);
 }
 
 /**
- * 上传样本（需选择数据集）
+ * 返回样本管理页
  */
-async function handleUpload({ file }) {
-  if (!selectedDatasetId.value) {
-    return ElMessage.warning("请先选择数据集");
-  }
-
-  try {
-    await uploadSampleFile(selectedDatasetId.value, file);
-    ElMessage.success("上传成功");
-
-    uploadDialogVisible.value = false;
-    selectedDatasetId.value = null;
-    loadSamples();
-  } catch (e) {
-    ElMessage.error(e?.response?.data?.detail || "上传失败");
-  }
+function goBack() {
+  router.push("/samples");
 }
 
-/**
- * 删除样本
- */
-async function remove(row) {
-  try {
-    await ElMessageBox.confirm(
-      `确认删除样本「${row.filename}」？该操作不可恢复。`,
-      "删除确认",
-      { type: "warning" }
-    );
-
-    await deleteSample(row.id);
-    ElMessage.success("删除成功");
-    loadSamples();
-  } catch (e) {
-    if (e !== "cancel") {
-      ElMessage.error("删除失败");
-    }
-  }
-}
-
-/**
- * 进入样本详情页
- */
-function goDetail(row) {
-  router.push(`/samples/${row.id}`);
-}
-
-/**
- * 页面初始化
- */
 onMounted(() => {
-  loadSamples();
+  if (!Number.isFinite(sampleId)) {
+    ElMessage.error("非法的样本 ID");
+    router.push("/samples");
+    return;
+  }
+  loadSample();
 });
 </script>
 
@@ -224,6 +157,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
 }
 
 .page-title {

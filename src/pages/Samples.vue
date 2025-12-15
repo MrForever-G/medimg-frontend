@@ -103,8 +103,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 
 import { getAllSamples, deleteSample, uploadSampleFile } from "../api/samples";
@@ -114,6 +114,7 @@ import { getDatasets } from "../api/datasets";
  * 路由实例
  */
 const router = useRouter();
+const route = useRoute();
 
 /**
  * 样本列表数据
@@ -142,6 +143,7 @@ const selectedDatasetId = ref(null);
 
 /**
  * 加载系统中的全部样本
+ * 只允许在 /samples 页面调用
  */
 async function loadSamples() {
   loading.value = true;
@@ -218,9 +220,18 @@ async function remove(row) {
 }
 
 /**
- * 页面初始化
+ * 路由监听
+ * 仅当路径精确为 /samples 时才加载列表
  */
-onMounted(loadSamples);
+watch(
+  () => route.path,
+  (path) => {
+    if (path === "/samples") {
+      loadSamples();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

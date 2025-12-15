@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 
 import Login from "../pages/Login.vue";
 import Register from "../pages/Register.vue";
-import Home from "../pages/Home.vue";   // Home = 布局容器
+import Home from "../pages/Home.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -19,20 +19,36 @@ const router = createRouter({
       children: [
         { path: "", redirect: "/home" },
 
-        // 首页右侧区域
+        // 首页
         { path: "home", component: () => import("../pages/Dashboard.vue") },
 
-        // 数据集管理
+        // 数据集
         { path: "datasets", component: () => import("../pages/Datasets.vue") },
         { path: "datasets/:id", component: () => import("../pages/DatasetDetail.vue") },
 
-        // 样本管理（Step 7）
-        { path: "samples", component: () => import("../pages/Samples.vue") },
-        { path: "samples/of/:datasetId", component: () => import("../pages/SamplesOfDataset.vue") },
-        { path: "samples/:id", component: () => import("../pages/SampleDetail.vue") },
+        // 数据集下的样本（强语义，不和 sample id 冲突）
+        {
+          path: "datasets/:datasetId/samples",
+          component: () => import("../pages/SamplesOfDataset.vue"),
+        },
+        
+        // 样本详情
+        {
+          path: "samples/:id",
+          component: () => import("../pages/SampleDetail.vue"),
+        },
 
-        // 标注平台
-        { path: "annotations/:sampleId", component: () => import("../pages/AnnotationPage.vue") },
+        // 样本管理（全局）
+        {
+          path: "samples",
+          component: () => import("../pages/Samples.vue"),
+        },
+
+        // 标注
+        {
+          path: "annotations/:sampleId",
+          component: () => import("../pages/AnnotationPage.vue"),
+        },
       ],
     },
   ],
