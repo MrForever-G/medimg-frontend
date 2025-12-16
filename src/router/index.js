@@ -50,17 +50,17 @@ const router = createRouter({
           component: () => import("../pages/AnnotationPage.vue"),
         },
 
-        // ✅ 审批管理（新增）
+        // 审批管理
         {
           path: "review",
           component: () => import("../pages/ApprovalManagement.vue"),
         },
 
-        // （做完审计日志再开）
-        // {
-        //   path: "audit",
-        //   component: () => import("../pages/AuditLog.vue"),
-        // },
+        // 审计日志
+        {
+          path: "audit",
+          component: () => import("../pages/AuditLogs.vue"),
+        },
       ],
     },
   ],
